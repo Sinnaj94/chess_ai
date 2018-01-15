@@ -12,13 +12,29 @@ class GameManager:
         self.board.reset_board()
         self.interface = CUI(self.board)
         self.game_logic = GameLogic(self.board)
+        self.board.set_player_names(self.interface.get_player_names())
+        self.game_loop()
+
+    def game_loop(self):
+        current_player = self.board.player1
         while True:
             self.interface.output_board()
-            self.interface.output_player(None)
-            start = self.interface.get_position(False)
-            # TODO: ueberpruefen
-            end = self.interface.get_position(True)
-            # TODO: ueberpruefen
+            self.interface.output_player(current_player)
+            vector = [[None, None],[None, None]]
+            while not self.game_logic.get_valid_position(vector[0]):
+                vector[0] = self.interface.get_position(False)
+            while not self.game_logic.get_valid_position(vector[1]):
+                vector[1] = self.interface.get_position(True)
+            print vector
+            # Naechster Player ist am Zug.
+            current_player = self.get_next_player(current_player)
+
+    def get_next_player(self, current_player):
+        if current_player == self.board.player1:
+            return self.board.player2
+        elif current_player == self.board.player2:
+            return self.board.player1
+        return None
 
     def get_figure_by_string(self, string):
         ascii = string.ascii_lowercase
@@ -31,8 +47,16 @@ class GameLogic:
     def selected_piece_belongs_to_player(self, piece, player):
         return piece.owner == player
 
-    def get_piece_on_position(self):
-        raise NotImplementedError
+    def get_piece_on_position(self, position):
+        for piece in self.board.pieces:
+            if piece.x == position[0] and piece.y == position[1]:
+                return piece
+        return False
+
+    def get_valid_position(self, position):
+        if 0 <= position[0] <= self.board.my_size and 0 <= position[1] < self.board.my_size:
+            return True
+        return False
 
 
 class Interface:
@@ -51,6 +75,10 @@ class Interface:
     def get_position(self, end):
         raise NotImplementedError
 
+    def get_player_names(self):
+        raise NotImplementedError
+
+
 
 class CUI(Interface):
     def __init__(self, board):
@@ -58,30 +86,34 @@ class CUI(Interface):
         self.rendered = self.board.field
         self.asciis = string.ascii_lowercase
 
+    def get_player_names(self):
+        names = ["Player 1", "Player 2"]
+        names[0] = raw_input("Bitte Namen von Spieler eins angeben:")
+        names[1] = raw_input("Bitte Namen von Spieler zwei angeben:")
+        return names
+
     def get_position(self, end):
         my_return = None
         if not end:
             my_return = str(raw_input("Bitte Startpunkt angeben (a1-h8):"))
         else:
             my_return = str(raw_input("Bitte Endpunkt angeben (a1-h8):"))
-        return my_return
+        formatted = self.convert_to_position(my_return)
+        if not formatted:
+            self.get_position(end)
+        return formatted
 
-    def validate_input(self, my_input):
-        first_char = False
-
-
-    def validate_char(self, character):
-        for i in range(self.board.my_size):
-            if character == self.asciis[i]:
-                return i
-        return False
-
-    def validate_number(self, number):
-        if int()
+    def convert_to_position(self, my_input):
+        pos = []
+        try:
+            pos.append(int(ord(my_input[0])-97))
+            pos.append(int(my_input[1])-1)
+            return pos
+        except (ValueError, IndexError) as e:
+            return False
 
     def output_player(self, player):
-        #TODO
-        print "Spieler ist dran."
+        print player.name + " ist dran."
 
     def output_board(self):
         self.generate_board()
@@ -124,8 +156,8 @@ class Board:
         self.field[:] = '0'
         self.configuration = Configuration()
         self.pieces = []
-        self.player1 = Player("Me", False)
-        self.player2 = Player("Bot", True)
+        self.player1 = Player("Player 1", False)
+        self.player2 = Player("Player 2", True)
 
     # see if the position is possible on the field or not
     def move_possible(self, x, y):
@@ -133,6 +165,10 @@ class Board:
 
     def get_field(self):
         return self.field
+
+    def set_player_names(self, player_names):
+        self.player1.name = player_names[0]
+        self.player2.name = player_names[1]
 
     def reset_board(self):
         conf = self.configuration.get_configuration()
